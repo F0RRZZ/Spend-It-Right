@@ -865,17 +865,15 @@ class Settings(QWidget):
     def change_chart_theme(self) -> None:
 
         """Смена темы в диаграммах"""
+        
+        index = self.themes_names.index(self.set_theme_combo_box.currentText())
 
-        window.tabwidget.widget(0).chart.setTheme(
-            self.themes[self.themes_names.index(self.set_theme_combo_box.currentText())])
-        if isinstance(ex.tabwidget.widget(1), Analys):
-            window.tabwidget.widget(1).chart1.setTheme(
-                self.themes[self.themes_names.index(self.set_theme_combo_box.currentText())])
-            window.tabwidget.widget(1).chart2.setTheme(
-                self.themes[self.themes_names.index(self.set_theme_combo_box.currentText())])
+        window.tabwidget.widget(0).chart.setTheme(self.themes[index])
+        if isinstance(window.tabwidget.widget(1), Analys):
+            window.tabwidget.widget(1).chart1.setTheme(self.themes[index])
+            window.tabwidget.widget(1).chart2.setTheme(self.themes[index])
         else:
-            window.tabwidget.widget(1).chart.setTheme(
-                self.themes[self.themes_names.index(self.set_theme_combo_box.currentText())])
+            window.tabwidget.widget(1).chart.setTheme(self.themes[index])
 
     def set_salary(self) -> None:
 
