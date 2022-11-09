@@ -19,23 +19,14 @@ month = month_names[datetime.datetime.now().month - 1]
 DATABASE = sqlite3.connect('database.sqlite')
 cur = DATABASE.cursor()
 
-# если наступил новый месяц, добавляем его в months.txt
-with open('months.txt', encoding='utf-8', mode='r') as file:
-    MONTHS = list(map(lambda x: x.replace('\n', ''), file.readlines()))
-
-if month_names[datetime.datetime.now().month - 1] not in MONTHS:
-    MONTHS.append(month)
-    with open('months.txt', encoding='utf-8', mode='w') as file:
-        file.write(month)
-    # также добавляем поле с месяцем в salary.sqlite
-    with sqlite3.connect('salary.sqlite') as salary_db:
-        salary_cur = salary_db.cursor()
-        salary_cur.execute("""INSERT INTO months(month, salary) VALUES(?, 0)""", (month, ))
-        salary_db.commit()
-
 with sqlite3.connect('salary.sqlite') as salary_db:
     salary_cur = salary_db.cursor()
-    SALARY = salary_cur.execute("""SELECT salary FROM months WHERE month = ?""", (month, )).fetchall()[0][0]
+    MONTHS = [i[0] for i in salary_cur.execute("""SELECT month FROM months""").fetchall()]
+    if month not in MONTHS:
+        MONTHS.append(month)
+        salary_cur = salary_db.cursor()
+        salary_cur.execute("""INSERT INTO months(month, salary) VALUES(?, 0)""", (month,))
+        salary_db.commit()
 
 
 class MainWindow(QWidget):
@@ -392,7 +383,8 @@ class MainWindow(QWidget):
                     if isinstance(self.items[i], QTextEdit):
                         index = i
                         break
-                text = list(filter(lambda x: x != '', self.items[index].toPlainText().split("\n")))  # достаем из PlainText все покупки и сразу убираем символ переноса строки
+                text = list(filter(lambda x: x != '', self.items[index].toPlainText().split(
+                    "\n")))  # достаем из PlainText все покупки и сразу убираем символ переноса строки
                 self.items[index].append(f'{len(text) + 1}. {purchase_name} - {purchase_price} руб.')
                 for i in range(len(self.series.slices())):
                     if self.series.slices()[i].label() == self.items[index - 1].text():
@@ -486,9 +478,11 @@ class MainWindow(QWidget):
 
         """Расчет сэкономленных денег в процентах"""
 
-        global SALARY
+        with sqlite3.connect('salary.sqlite') as salary_db2:
+            salary_cur2 = salary_db2.cursor()
+            salary = salary_cur2.execute("""SELECT salary FROM months WHERE month = ?""", (self.month.text(),)).fetchall()[0][0]
 
-        saved = (SALARY - self.sum_) / SALARY * 100 if SALARY != 0 else 0
+        saved = (salary - self.sum_) / salary * 100 if salary != 0 else 0
         if saved < 0:
             saved = 0
         self.saved_lbl.setText(f'Сэкономлено: {round(float(saved), 2)}%')
@@ -509,7 +503,10 @@ class MainWindow(QWidget):
                                                  (i.label(), self.month.text(),)).fetchall()):
                 document.add_paragraph(f'{j + 1}. {elem[0]} - {elem[1]} руб.')
         document.add_paragraph()
-        document.add_paragraph(f'Доход: {SALARY} руб.')
+        with sqlite3.connect('salary.sqlite') as salary_db2:
+            salary_cur2 = salary_db2.cursor()
+            salary = salary_cur2.execute("""SELECT salary FROM months WHERE month = ?""", (self.month.text(),)).fetchall()[0][0]
+            document.add_paragraph(f'Доход: {salary} руб.')
         document.add_paragraph(f'Итого: {self.sum_} руб.')
         document.add_paragraph(self.saved_lbl.text())
         document.save(path + '/' + f'Отчет {self.month.text()}.docx')
@@ -688,7 +685,11 @@ class Analys(QWidget):
         sum_ = 0
         for i in [self.slices1, self.slices2][chart_index]:
             sum_ += round(i.value())
-        saved = (SALARY - sum_) / SALARY * 100 if SALARY != 0 else 0
+        with sqlite3.connect('salary.sqlite') as salary_db2:
+            month = [self.month1.text(), self.month2.text()][chart_index]
+            salary_cur2 = salary_db2.cursor()
+            salary = salary_cur2.execute("""SELECT salary FROM months WHERE month = ?""", (month,)).fetchall()[0][0]
+        saved = (salary - sum_) / salary * 100 if salary != 0 else 0
         if saved < 0:
             saved = 0
         [self.saved1, self.saved2][chart_index].setText(f'Сэкономлено: {round(float(saved), 2)}%')
@@ -837,6 +838,9 @@ class Settings(QWidget):
         self.initUI()
 
     def initUI(self):
+
+        global month
+
         self.main_window_button.clicked.connect(self.change_tab)
         self.comparison_window_button.clicked.connect(self.change_tab)
         self.settings_button.clicked.connect(self.change_tab)
@@ -853,7 +857,10 @@ class Settings(QWidget):
 
         self.set_theme_btn.clicked.connect(self.change_chart_theme)
         self.set_salary_btn.clicked.connect(self.set_salary)
-        self.salary_spin_box.setValue(SALARY)
+        with sqlite3.connect('salary.sqlite') as salary_db2:
+            salary_cur2 = salary_db2.cursor()
+            salary = salary_cur2.execute("""SELECT salary FROM months WHERE month = ?""", (month,)).fetchall()[0][0]
+            self.salary_spin_box.setValue(salary)
 
     def change_analys_mode(self) -> None:
 
@@ -865,7 +872,7 @@ class Settings(QWidget):
     def change_chart_theme(self) -> None:
 
         """Смена темы в диаграммах"""
-        
+
         index = self.themes_names.index(self.set_theme_combo_box.currentText())
 
         window.tabwidget.widget(0).chart.setTheme(self.themes[index])
@@ -879,20 +886,18 @@ class Settings(QWidget):
 
         """Смена значения дохода"""
 
-        global SALARY
+        global month
+
         with sqlite3.connect('salary.sqlite') as salary_db2:
             salary_cur2 = salary_db2.cursor()
             salary_cur2.execute("""UPDATE months
                                    SET salary = ?
                                    WHERE month = ?""", (self.salary_spin_box.value(), month))
-            salary_db2.commit()
-            SALARY = salary_cur2.execute("""SELECT salary FROM months WHERE month = ?""", (month, )).fetchall()[0][0]
 
         window.tabwidget.removeTab(0)
         window.tabwidget.insertTab(0, MainWindow(), 'Tab 1')
         window.tabwidget.removeTab(1)
         window.tabwidget.insertTab(1, Analys(), 'Tab 2')
-
 
     def change_tab(self) -> None:
 
@@ -927,4 +932,3 @@ if __name__ == '__main__':
     window.show()
     sys.exit(app.exec_())
 DATABASE.close()
-
