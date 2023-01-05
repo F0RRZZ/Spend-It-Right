@@ -10,6 +10,7 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtChart import QChart, QChartView, QPieSeries, QPieSlice, QBarSeries, QBarSet, QBarCategoryAxis
 from PyQt5.QtGui import QColor, QIcon
 
+
 month_names = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май',
                'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь',
                'Ноябрь', 'Декабрь']
@@ -124,6 +125,7 @@ class MainWindow(QWidget):
         self.hovered_slice_category.setText("Выбранная категория")
         self.hovered_slice_category.resize(170, 20)
         self.hovered_slice_category.move(950, 380)
+        self.hovered_slice_category.setStyleSheet('background: transparent;')
 
         self.addCategoryButton.clicked.connect(self.add_category)
         self.deleteCategoryButton.clicked.connect(self.delete_category)
@@ -636,9 +638,9 @@ class Analys(QWidget):
         elif self.sender().pos().x() == 570:
             self.month1.setText(MONTHS[(MONTHS.index(self.month1.text()) + 1) % len(MONTHS)])
         elif self.sender().pos().x() == 900:
-            self.month1.setText(MONTHS[(MONTHS.index(self.month1.text()) - 1) % len(MONTHS)])
+            self.month2.setText(MONTHS[(MONTHS.index(self.month2.text()) - 1) % len(MONTHS)])
         else:
-            self.month1.setText(MONTHS[(MONTHS.index(self.month1.text()) + 1) % len(MONTHS)])
+            self.month2.setText(MONTHS[(MONTHS.index(self.month2.text()) + 1) % len(MONTHS)])
         if self.sender().pos().x() in [400, 570]:
             self.slices1.clear()
             self.slices1.clear()
